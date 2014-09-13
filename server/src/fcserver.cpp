@@ -33,11 +33,13 @@
 FCServer::FCServer(rapidjson::Document &config)
     : mConfig(config),
       mListen(config["listen"]),
+      mArtnet(config["artnet"]),
       mColor(config["color"]),
       mDevices(config["devices"]),
       mVerbose(config["verbose"].IsTrue()),
       mPollForDevicesOnce(false),
       mTcpNetServer(cbOpcMessage, cbJsonMessage, this, mVerbose),
+      mArtNetServer(cbOpcMessage, this, mVerbose),
       mUSBHotplugThread(0),
       mUSB(0)
 {
@@ -77,8 +79,21 @@ bool FCServer::start(libusb_context *usb)
     const Value &host = mListen[0u];
     const Value &port = mListen[1];
     const char *hostStr = host.IsString() ? host.GetString() : NULL;
+    bool artnet = !(mArtnet.IsNull() || mArtnet.IsFalse());
 
-    return mTcpNetServer.start(hostStr, port.GetUint()) && startUSB(usb);
+    if (!mTcpNetServer.start(hostStr, port.GetUint())) {
+        return false;
+    }
+
+    if (artnet && !mArtNetServer.start()) {
+        return false;
+    }
+
+    if (!startUSB(usb)) {
+        return false;
+    }
+
+    return true;
 }
 
 bool FCServer::startUSB(libusb_context *usb)

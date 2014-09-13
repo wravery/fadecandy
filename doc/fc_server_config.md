@@ -16,6 +16,7 @@ The configuration file is a JSON object. By default, it looks like this:
 {
     "listen": ["127.0.0.1", 7890],
     "verbose": true,
+    "artnet": false,
 
     "color": {
         "gamma": 2.5,
@@ -36,6 +37,7 @@ The configuration file is a JSON object. By default, it looks like this:
 Name     | Summary
 -------- | -------------------------------------------------------
 listen   | What address and port should the server listen on?
+artnet   | Listen for incoming Art-Net (DMX) packets?
 verbose  | Does the server log anything except errors to the console?
 color    | Default global color correction settings
 devices  | List of configured devices
@@ -46,6 +48,8 @@ Listen
 By default, fcserver listens on port 7890 on the local (loopback) interface. This server will not be reachable by other computers on your network, only by programs on the same computer.
 
 The "listen" configuration key must be a JSON array of the form [**host**, **port**], where **port** is a number and **host** is either a string or *null*. If the host is *null*, fcserver listens on all network interfaces and it's reachable from other computers
+
+If "artnet" is true, fcserver also listens for Art-Net broadcast packets, and internally transcribes them to Open Pixel Control format. The Art-Net "Universe" is treated internally as an Open Pixel Control channel number that can range from 0 to  
 
 *Warning:* Do not run fcserver on an untrusted network. It has no built-in security provisions, so anyone on your network will have control of fcserver. Additionally, bugs in fcserver may compromise the security of your computer.
 
@@ -90,10 +94,10 @@ Fadecandy Devices
 
 Supported mapping objects for Fadecandy devices:
 
-* [ *OPC Channel*, *First OPC Pixel*, *First output pixel*, *Pixel count* ]
+* [ *OPC Channel / Art-Net Universe*, *First input pixel*, *First output pixel*, *Pixel count* ]
     * Map a contiguous range of pixels from the specified OPC channel to the current device
     * For Fadecandy devices, output pixels are numbered from 0 through 511. Strand 1 begins at index 0, strand 2 begins at index 64, etc.
-* [ *OPC Channel*, *First OPC Pixel*, *First output pixel*, *Pixel count*, *Color channels* ]
+* [ *OPC Channel / Art-Net Universe*, *First input pixel*, *First output pixel*, *Pixel count*, *Color channels* ]
     * As above, but the mapping between color channels and WS2811 output channels can be changed.
     * The "Color channels" must be a 3-letter string, where each letter corresponds to one of the WS2811 outputs.
     * Each letter can be "r", "g", or "b" to choose the red, green, or blue channel respectively, or "l" to use the average luminosity.

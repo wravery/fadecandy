@@ -25,6 +25,7 @@
 #include "rapidjson/document.h"
 #include "opc.h"
 #include "tcpnetserver.h"
+#include "artnetserver.h"
 #include "usbdevice.h"
 #include <sstream>
 #include <vector>
@@ -51,12 +52,14 @@ private:
 
     const Document& mConfig;
     const Value& mListen;
+    const Value& mArtnet;
     const Value& mColor;
     const Value& mDevices;
     bool mVerbose;
     bool mPollForDevicesOnce;
 
     TcpNetServer mTcpNetServer;
+    ArtNetServer mArtNetServer;
     tthread::recursive_mutex mEventMutex;
     tthread::thread *mUSBHotplugThread;    
 
