@@ -579,12 +579,6 @@ void FCDevice::opcMapPixelColors(const OPC::Message &msg, const Value &inst)
                 firstOPC = std::min<unsigned>(firstOPC, msgPixelCount);
                 count = std::min<unsigned>(count, msgPixelCount - firstOPC);    
 
-//std::clog << "firstOPC: " << firstOPC
-//<< ", count: " << count 
-//<< ", firstOut: " << firstOut 
-//<< ", pixelCount: " << pixelCount
-//<< std::endl;
- 
                 // Copy pixels
                 const uint8_t *inPtr = msg.data + (firstOPC * 3);
                 const int outDelta = pixelCount < 0 ? -1 : 1;
