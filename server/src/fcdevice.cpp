@@ -526,12 +526,12 @@ void FCDevice::opcMapPixelColors(const OPC::Message &msg, const Value &inst)
      * recognize:
      *
      *   [ OPC Channel, First OPC Pixel, First output pixel, Pixel count ]
-     *   [ OPC Channel, First OPC Pixel, First output pixel, Color channels ]
+     *   [ OPC Channel, First OPC Pixel, First output pixel, Pixel count, Color channels ]
      */
 
-    unsigned msgPixelCount = msg.length() / 3;
+    const unsigned msgPixelCount = msg.length() / 3;
 
-    if (inst.IsArray() && inst.Size() == 4) {
+    if (inst.IsArray() && (inst.Size() == 4 || inst.Size() == 5)) {
         // Map a range from an OPC channel to our framebuffer
 
         const Value &vChannel = inst[0u];
@@ -539,86 +539,80 @@ void FCDevice::opcMapPixelColors(const OPC::Message &msg, const Value &inst)
         const Value &vFirstOut = inst[2];
         const Value &vCount = inst[3];
 
-        if (vChannel.IsUint() && vFirstOPC.IsUint() && vFirstOut.IsUint() && vCount.IsUint()) {
-            unsigned channel = vChannel.GetUint();
-            unsigned firstOPC = vFirstOPC.GetUint();
-            unsigned firstOut = vFirstOut.GetUint();
-            unsigned count = vCount.GetUint();
-
-            if (channel != msg.channel) {
-                return;
-            }
-
-            // Clamping, overflow-safe
-            firstOPC = std::min<unsigned>(firstOPC, msgPixelCount);
-            firstOut = std::min<unsigned>(firstOut, unsigned(NUM_PIXELS));
-            count = std::min<unsigned>(count, msgPixelCount - firstOPC);
-            count = std::min<unsigned>(count, NUM_PIXELS - firstOut);
-
-            // Copy pixels
-            const uint8_t *inPtr = msg.data + (firstOPC * 3);
-            unsigned outIndex = firstOut;
-
-            while (count--) {
-                uint8_t *outPtr = fbPixel(outIndex++);
-                outPtr[0] = inPtr[0];
-                outPtr[1] = inPtr[1];
-                outPtr[2] = inPtr[2];
-                inPtr += 3;
-            }
-
-            return;
-        }
-    }
-
-    if (inst.IsArray() && inst.Size() == 5) {
-        // Map a range from an OPC channel to our framebuffer, with color channel swizzling
-
-        const Value &vChannel = inst[0u];
-        const Value &vFirstOPC = inst[1];
-        const Value &vFirstOut = inst[2];
-        const Value &vCount = inst[3];
-        const Value &vColorChannels = inst[4];
-
-        if (vChannel.IsUint() && vFirstOPC.IsUint() && vFirstOut.IsUint() && vCount.IsUint()
-            && vColorChannels.IsString() && vColorChannels.GetStringLength() == 3) {
-
-            unsigned channel = vChannel.GetUint();
-            unsigned firstOPC = vFirstOPC.GetUint();
-            unsigned firstOut = vFirstOut.GetUint();
-            unsigned count = vCount.GetUint();
-            const char *colorChannels = vColorChannels.GetString();
-
-            if (channel != msg.channel) {
-                return;
-            }
-
-            // Clamping, overflow-safe
-            firstOPC = std::min<unsigned>(firstOPC, msgPixelCount);
-            firstOut = std::min<unsigned>(firstOut, unsigned(NUM_PIXELS));
-            count = std::min<unsigned>(count, msgPixelCount - firstOPC);
-            count = std::min<unsigned>(count, NUM_PIXELS - firstOut);
-
-            // Copy pixels
-            const uint8_t *inPtr = msg.data + (firstOPC * 3);
-            unsigned outIndex = firstOut;
+        if (vChannel.IsUint() && vFirstOPC.IsUint() && vFirstOut.IsUint() && vCount.IsInt()) {
+            const char *colorChannels = nullptr;
             bool success = true;
 
-            while (count--) {
-                uint8_t *outPtr = fbPixel(outIndex++);
+            if (inst.Size() == 5) {
+                // Map with color channel swizzling
 
-                for (int channel = 0; channel < 3; channel++) {
-                    if (!OPC::pickColorChannel(outPtr[channel], colorChannels[channel], inPtr)) {
-                        success = false;
-                        break;
-                    }
+                const Value &vColorChannels = inst[4];
+
+                if (vColorChannels.IsString() && vColorChannels.GetStringLength() == 3) {
+                    colorChannels = vColorChannels.GetString();
+                } else {
+                    success = false;
                 }
-
-                inPtr += 3;
             }
 
             if (success) {
-                return;
+                unsigned channel = vChannel.GetUint();
+                unsigned firstOPC = vFirstOPC.GetUint();
+                unsigned firstOut = vFirstOut.GetUint();
+                const int pixelCount = vCount.GetInt();
+                unsigned count = std::abs(pixelCount);
+
+                if (channel != msg.channel) {
+                    return;
+                }
+
+                // Clamping, overflow-safe
+                if (pixelCount < 0) {
+                    count = std::min<unsigned>(count, unsigned(NUM_PIXELS));    
+                    count = std::min<unsigned>(count, firstOut + 1);    
+                    firstOut = std::min<unsigned>(firstOut, unsigned(NUM_PIXELS) - 1);
+                } else {
+                    firstOut = std::min<unsigned>(firstOut, unsigned(NUM_PIXELS));
+                    count = std::min<unsigned>(count, NUM_PIXELS - firstOut);
+                }
+
+                firstOPC = std::min<unsigned>(firstOPC, msgPixelCount);
+                count = std::min<unsigned>(count, msgPixelCount - firstOPC);    
+
+//std::clog << "firstOPC: " << firstOPC
+//<< ", count: " << count 
+//<< ", firstOut: " << firstOut 
+//<< ", pixelCount: " << pixelCount
+//<< std::endl;
+ 
+                // Copy pixels
+                const uint8_t *inPtr = msg.data + (firstOPC * 3);
+                const int outDelta = pixelCount < 0 ? -1 : 1;
+                int outIndex = static_cast<int>(firstOut);
+    
+                while (success && count--) {
+                    uint8_t *outPtr = fbPixel(static_cast<unsigned>(outIndex));
+    
+                    if (nullptr == colorChannels) {
+                        outPtr[0] = inPtr[0];
+                        outPtr[1] = inPtr[1];
+                        outPtr[2] = inPtr[2];
+                    } else {
+                        for (int channel = 0; channel < 3; channel++) {
+                            if (!OPC::pickColorChannel(outPtr[channel], colorChannels[channel], inPtr)) {
+                                success = false;
+                                break;
+                            }
+                        }
+                    }
+    
+                    inPtr += 3;
+                    outIndex += outDelta;
+                }
+
+                if (success) {
+                    return;
+                }
             }
         }
     }
