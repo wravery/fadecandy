@@ -97,6 +97,7 @@ Supported mapping objects for Fadecandy devices:
 * [ *OPC Channel*, *First OPC Pixel*, *First output pixel*, *Pixel count* ]
     * Map a contiguous range of pixels from the specified OPC channel to the current device
     * For Fadecandy devices, output pixels are numbered from 0 through 511. Strand 1 begins at index 0, strand 2 begins at index 64, etc.
+	* Pixel count can be negative if you want to map a segment in reverse order, but then the first output pixel should be the last one in that segment, e.g. [..., 0, 64] in reverse order would be [..., 63, -64].
 * [ *OPC Channel*, *First OPC Pixel*, *First output pixel*, *Pixel count*, *Color channels* ]
     * As above, but the mapping between color channels and WS2811 output channels can be changed.
     * The "Color channels" must be a 3-letter string, where each letter corresponds to one of the WS2811 outputs.

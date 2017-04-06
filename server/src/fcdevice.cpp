@@ -525,8 +525,8 @@ void FCDevice::opcMapPixelColors(const OPC::Message &msg, const Value &inst)
      * into our framebuffer. This looks for any mapping instructions that we
      * recognize:
      *
-     *   [ OPC Channel, First OPC Pixel, First output pixel, Pixel count ]
-     *   [ OPC Channel, First OPC Pixel, First output pixel, Pixel count, Color channels ]
+     *   [ OPC Channel, First OPC Pixel, First output pixel, +/- Pixel count ]
+     *   [ OPC Channel, First OPC Pixel, First output pixel, +/- Pixel count, Color channels ]
      */
 
     const unsigned msgPixelCount = msg.length() / 3;
@@ -556,13 +556,13 @@ void FCDevice::opcMapPixelColors(const OPC::Message &msg, const Value &inst)
             }
 
             if (success) {
-                unsigned channel = vChannel.GetUint();
+                const unsigned mapChannel = vChannel.GetUint();
                 unsigned firstOPC = vFirstOPC.GetUint();
                 unsigned firstOut = vFirstOut.GetUint();
                 const int pixelCount = vCount.GetInt();
                 unsigned count = std::abs(pixelCount);
 
-                if (channel != msg.channel) {
+                if (mapChannel != msg.channel) {
                     return;
                 }
 
